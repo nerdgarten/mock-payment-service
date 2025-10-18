@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "github.com/nerdgarten/mock-payment-service/proto";
+
+message Customer {
+  string id = 1;
+  string object = 2;
+  string name = 3;
+  string email = 4;
+  int64 created = 5;
+}
+
+message CreateCustomerRequest {
+  string name = 1;
+  string email = 2;
+}
+
+message CreateCustomerResponse {
+  Customer customer = 1;
+}
+
+message RetrieveCustomerRequest {
+  string id = 1;
+}
+
+message RetrieveCustomerResponse {
+  Customer customer = 1;
+}
+
+message PaymentIntent {
+  string id = 1;
+  string object = 2;
+  int64 amount = 3;
+  string currency = 4;
+  string status = 5;
+  string client_secret = 6;
+  string description = 7;
+  string payment_method = 8;
+}
+
+message CreatePaymentIntentRequest {
+  int64 amount = 1;
+  string currency = 2;
+  string payment_method = 3;
+  string description = 4;
+}
+
+message CreatePaymentIntentResponse {
+  PaymentIntent payment_intent = 1;
+}
+
+message Charge {
+  string id = 1;
+  string status = 2;
+  int64 amount = 3;
+  string currency = 4;
+  string payment_method = 5;
+}
+
+message Charges {
+  repeated Charge data = 1;
+}
+
+message ConfirmPaymentIntentRequest {
+  string id = 1;
+}
+
+message ConfirmPaymentIntentResponse {
+  PaymentIntent payment_intent = 1;
+  Charges charges = 2;
+}
+
+message Refund {
+  string id = 1;
+  string object = 2;
+  int64 amount = 3;
+  string currency = 4;
+  string status = 5;
+  string payment_intent = 6;
+}
+
+message CreateRefundRequest {
+  string payment_intent = 1;
+  int64 amount = 2;
+}
+
+message CreateRefundResponse {
+  Refund refund = 1;
+}
+
+message TestWebhookRequest {
+  string type = 1;
+  string data = 2; // JSON string for simplicity
+}
+
+message TestWebhookResponse {
+  bool received = 1;
+}
+
+service PaymentService {
+  rpc CreateCustomer(CreateCustomerRequest) returns (CreateCustomerResponse);
+  rpc RetrieveCustomer(RetrieveCustomerRequest) returns (RetrieveCustomerResponse);
+  rpc CreatePaymentIntent(CreatePaymentIntentRequest) returns (CreatePaymentIntentResponse);
+  rpc ConfirmPaymentIntent(ConfirmPaymentIntentRequest) returns (ConfirmPaymentIntentResponse);
+  rpc CreateRefund(CreateRefundRequest) returns (CreateRefundResponse);
+  rpc TestWebhook(TestWebhookRequest) returns (TestWebhookResponse);
+}
