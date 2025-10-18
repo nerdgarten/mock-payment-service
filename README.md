@@ -102,7 +102,7 @@ Simulates Stripe-style webhook delivery for testing event listeners.
 
 ---
 
-## 🚀 Running the Server
+## Running the Server
 
 To start the gRPC server:
 
@@ -116,7 +116,7 @@ The server will listen on port 50051 by default. You can set the `PORT` environm
 PORT=8080 go run main.go
 ```
 
-## 🧪 Running the Client Example
+## Running the Client Example
 
 To run the example client (ensure the server is running first):
 
@@ -132,7 +132,7 @@ PORT=8080 go run client/client.go
 
 This will demonstrate various gRPC calls to the mock service.
 
-## 📁 Project Structure
+## Project Structure
 
 - `proto/`: Contains the protobuf definitions and generated Go code
 - `data/`: Mock data definitions and helper functions
