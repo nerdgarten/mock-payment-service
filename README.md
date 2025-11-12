@@ -1,141 +1,77 @@
 # Mock Payment Service
 
-A lightweight mock implementation of a payment gateway (similar to Stripe) using gRPC for local testing and development.
-This service simulates the behavior of real payment APIs, including customer creation, payment intents, and webhooks — without external network calls or real transactions.
-
----
+A mock Stripe-like REST API for local integration testing. The service exposes HTTP endpoints for customer management, payment intent workflows, refunds, and webhook simulations without talking to external services.
 
 ## Features
 
-- Create and manage **mock customers** and **payment intents** via gRPC
-- Simulate **card charges**, **refunds**, and **payment statuses**
-- Support **webhook testing** for payment events
-- Return realistic protobuf responses for integration testing
-- Easy to run locally or in CI/CD environments
+- Pure HTTP+JSON contract (no gRPC dependencies)
+- Deterministic responses ideal for automated tests
+- Built-in mock datasets for customers, payment intents, charges, and refunds
+- Example Go client demonstrating endpoint usage
 
----
+## REST Endpoints
 
-## gRPC Methods
+| Method | Path                       | Description                                                    |
+| ------ | -------------------------- | -------------------------------------------------------------- |
+| `POST` | `/customers`               | Create a mock customer.                                        |
+| `GET`  | `/customers/{id}`          | Retrieve a customer by ID.                                     |
+| `POST` | `/payment-intents`         | Create a mock payment intent.                                  |
+| `POST` | `/payment-intents/confirm` | Confirm an existing payment intent and generate a mock charge. |
+| `POST` | `/refunds`                 | Create a refund linked to a payment intent.                    |
+| `POST` | `/webhooks/test`           | Simulate webhook delivery.                                     |
 
-### **1. CreateCustomer**
-`rpc CreateCustomer(CreateCustomerRequest) returns (CreateCustomerResponse)`
+Requests and responses use the JSON models defined in `types/types.go`. Errors follow the structure:
 
-Creates a mock customer.
-
-**Request Fields**
-- name: string
-- email: string
-
-**Response Fields**
-- customer: Customer (id, object, name, email, created)
-
----
-
-### **2. RetrieveCustomer**
-`rpc RetrieveCustomer(RetrieveCustomerRequest) returns (RetrieveCustomerResponse)`
-
-Returns customer details.
-
-**Request Fields**
-- id: string
-
-**Response Fields**
-- customer: Customer (id, object, name, email, created)
-
----
-
-### **3. CreatePaymentIntent**
-`rpc CreatePaymentIntent(CreatePaymentIntentRequest) returns (CreatePaymentIntentResponse)`
-
-Creates a mock payment intent representing a charge attempt.
-
-**Request Fields**
-- amount: int64
-- currency: string
-- payment_method: string
-- description: string
-
-**Response Fields**
-- payment_intent: PaymentIntent (id, object, amount, currency, status, client_secret, description, payment_method)
-
----
-
-### **4. ConfirmPaymentIntent**
-`rpc ConfirmPaymentIntent(ConfirmPaymentIntentRequest) returns (ConfirmPaymentIntentResponse)`
-
-Simulates confirming a payment (e.g., charge a card).
-
-**Request Fields**
-- id: string
-
-**Response Fields**
-- payment_intent: PaymentIntent
-- charges: Charges (data: []Charge)
-
----
-
-### **5. CreateRefund**
-`rpc CreateRefund(CreateRefundRequest) returns (CreateRefundResponse)`
-
-Simulates refunding a completed charge.
-
-**Request Fields**
-- payment_intent: string
-- amount: int64
-
-**Response Fields**
-- refund: Refund (id, object, amount, currency, status, payment_intent)
-
----
-
-### **6. TestWebhook**
-`rpc TestWebhook(TestWebhookRequest) returns (TestWebhookResponse)`
-
-Simulates Stripe-style webhook delivery for testing event listeners.
-
-**Request Fields**
-- type: string
-- data: string (JSON string)
-
-**Response Fields**
-- received: bool
-
----
+```json
+{
+  "error": "description"
+}
+```
 
 ## Running the Server
-
-To start the gRPC server:
 
 ```bash
 go run main.go
 ```
 
-The server will listen on port 50051 by default. You can set the `PORT` environment variable to use a different port:
+The service listens on `:50051` by default. Override by setting `PORT`:
 
 ```bash
 PORT=8080 go run main.go
 ```
 
-## Running the Client Example
+## Sample Requests
 
-To run the example client (ensure the server is running first):
+### Create Customer
+
+```bash
+curl -X POST http://localhost:50051/customers \
+	-H "Content-Type: application/json" \
+	-d '{"name":"Ruff","email":"ruff@example.com"}'
+```
+
+### Confirm Payment Intent
+
+```bash
+curl -X POST http://localhost:50051/payment-intents/confirm \
+	-H "Content-Type: application/json" \
+	-d '{"id":"pi_mock_98765"}'
+```
+
+## Project Structure
+
+- `types/` – shared request/response models
+- `data/` – mock datasets and helper functions
+- `server/` – HTTP handlers and route registration
+- `client/` – REST demo client
+- `main.go` – server entrypoint
+
+## Example Client
+
+Run the included client to exercise all endpoints:
 
 ```bash
 go run client/client.go
 ```
 
-The client connects to `localhost:50051` by default. If the server is running on a different port, set the `PORT` environment variable:
-
-```bash
-PORT=8080 go run client/client.go
-```
-
-This will demonstrate various gRPC calls to the mock service.
-
-## Project Structure
-
-- `proto/`: Contains the protobuf definitions and generated Go code
-- `data/`: Mock data definitions and helper functions
-- `server/`: gRPC server implementation
-- `client/`: Example client for testing the service
-- `main.go`: Entry point to start the server
+The client targets `http://localhost:50051` (configurable with `PORT`).

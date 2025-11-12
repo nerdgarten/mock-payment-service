@@ -1,72 +1,154 @@
 package server
 
 import (
-	"context"
-	"fmt"
+	"encoding/json"
 	"log"
+	"net/http"
+	"strings"
 
 	"github.com/nerdgarten/mock-payment-service/data"
-	pb "github.com/nerdgarten/mock-payment-service/proto"
+	"github.com/nerdgarten/mock-payment-service/types"
 )
 
-// PaymentServer implements the PaymentServiceServer interface
-type PaymentServer struct {
-	pb.UnimplementedPaymentServiceServer
-}
+// PaymentServer exposes HTTP handlers for the mock payment API.
+type PaymentServer struct{}
 
-// NewPaymentServer creates a new PaymentServer instance
+// NewPaymentServer creates a new PaymentServer instance.
 func NewPaymentServer() *PaymentServer {
 	return &PaymentServer{}
 }
 
-// CreateCustomer creates a new mock customer
-func (s *PaymentServer) CreateCustomer(ctx context.Context, req *pb.CreateCustomerRequest) (*pb.CreateCustomerResponse, error) {
-	log.Printf("CreateCustomer called with name: %s, email: %s", req.Name, req.Email)
+// RegisterRoutes registers HTTP endpoints on the provided mux.
+func (s *PaymentServer) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/customers", s.handleCustomers)
+	mux.HandleFunc("/customers/", s.handleCustomerByID)
+	mux.HandleFunc("/payment-intents", s.handlePaymentIntents)
+	mux.HandleFunc("/payment-intents/confirm", s.handleConfirmPaymentIntent)
+	mux.HandleFunc("/refunds", s.handleCreateRefund)
+	mux.HandleFunc("/webhooks/test", s.handleTestWebhook)
+}
+
+func (s *PaymentServer) handleCustomers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.CreateCustomerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	log.Printf("REST CreateCustomer called name=%s email=%s", req.Name, req.Email)
 	customer := data.CreateMockCustomer(req.Name, req.Email)
-	return &pb.CreateCustomerResponse{Customer: customer}, nil
+	writeJSON(w, http.StatusCreated, types.CreateCustomerResponse{Customer: *customer})
 }
 
-// RetrieveCustomer retrieves a customer by ID
-func (s *PaymentServer) RetrieveCustomer(ctx context.Context, req *pb.RetrieveCustomerRequest) (*pb.RetrieveCustomerResponse, error) {
-	log.Printf("RetrieveCustomer called with id: %s", req.Id)
-	customer := data.GetMockCustomer(req.Id)
+func (s *PaymentServer) handleCustomerByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w)
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/customers/")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "missing customer id")
+		return
+	}
+	log.Printf("REST RetrieveCustomer called id=%s", id)
+	customer := data.GetMockCustomer(id)
 	if customer == nil {
-		return nil, fmt.Errorf("customer not found: %s", req.Id)
+		writeError(w, http.StatusNotFound, "customer not found")
+		return
 	}
-	return &pb.RetrieveCustomerResponse{Customer: customer}, nil
+	writeJSON(w, http.StatusOK, types.RetrieveCustomerResponse{Customer: *customer})
 }
 
-// CreatePaymentIntent creates a new mock payment intent
-func (s *PaymentServer) CreatePaymentIntent(ctx context.Context, req *pb.CreatePaymentIntentRequest) (*pb.CreatePaymentIntentResponse, error) {
-	log.Printf("CreatePaymentIntent called with amount: %d, currency: %s, payment_method: %s", req.Amount, req.Currency, req.PaymentMethod)
+func (s *PaymentServer) handlePaymentIntents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.CreatePaymentIntentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	log.Printf("REST CreatePaymentIntent called amount=%d currency=%s", req.Amount, req.Currency)
 	intent := data.CreateMockPaymentIntent(req.Amount, req.Currency, req.PaymentMethod, req.Description)
-	return &pb.CreatePaymentIntentResponse{PaymentIntent: intent}, nil
+	writeJSON(w, http.StatusCreated, types.CreatePaymentIntentResponse{PaymentIntent: *intent})
 }
 
-// ConfirmPaymentIntent confirms a payment intent
-func (s *PaymentServer) ConfirmPaymentIntent(ctx context.Context, req *pb.ConfirmPaymentIntentRequest) (*pb.ConfirmPaymentIntentResponse, error) {
-	log.Printf("ConfirmPaymentIntent called with id: %s", req.Id)
-	intent, charges := data.ConfirmMockPaymentIntent(req.Id)
-	if intent == nil {
-		return nil, fmt.Errorf("payment intent not found: %s", req.Id)
+func (s *PaymentServer) handleConfirmPaymentIntent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
 	}
-	return &pb.ConfirmPaymentIntentResponse{
-		PaymentIntent: intent,
-		Charges:       charges,
-	}, nil
+	var req types.ConfirmPaymentIntentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	if strings.TrimSpace(req.ID) == "" {
+		writeError(w, http.StatusBadRequest, "payment intent id is required")
+		return
+	}
+	log.Printf("REST ConfirmPaymentIntent called id=%s", req.ID)
+	intent, charges := data.ConfirmMockPaymentIntent(req.ID)
+	if intent == nil {
+		writeError(w, http.StatusNotFound, "payment intent not found")
+		return
+	}
+	resp := types.ConfirmPaymentIntentResponse{PaymentIntent: *intent}
+	if charges != nil {
+		resp.Charges = *charges
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
-// CreateRefund creates a new mock refund
-func (s *PaymentServer) CreateRefund(ctx context.Context, req *pb.CreateRefundRequest) (*pb.CreateRefundResponse, error) {
-	log.Printf("CreateRefund called with payment_intent: %s, amount: %d", req.PaymentIntent, req.Amount)
+func (s *PaymentServer) handleCreateRefund(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.CreateRefundRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	if strings.TrimSpace(req.PaymentIntent) == "" {
+		writeError(w, http.StatusBadRequest, "payment_intent is required")
+		return
+	}
+	log.Printf("REST CreateRefund called payment_intent=%s amount=%d", req.PaymentIntent, req.Amount)
 	refund := data.CreateMockRefund(req.PaymentIntent, req.Amount)
-	return &pb.CreateRefundResponse{Refund: refund}, nil
+	writeJSON(w, http.StatusCreated, types.CreateRefundResponse{Refund: *refund})
 }
 
-// TestWebhook simulates webhook delivery
-func (s *PaymentServer) TestWebhook(ctx context.Context, req *pb.TestWebhookRequest) (*pb.TestWebhookResponse, error) {
-	log.Printf("TestWebhook called with type: %s", req.Type)
-	// In a real implementation, this would trigger webhook delivery
-	// For mock purposes, we just acknowledge receipt
-	return &pb.TestWebhookResponse{Received: true}, nil
+func (s *PaymentServer) handleTestWebhook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.TestWebhookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	log.Printf("REST TestWebhook called type=%s", req.Type)
+	writeJSON(w, http.StatusOK, types.TestWebhookResponse{Received: true})
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("failed to encode response: %v", err)
+	}
+}
+
+func writeError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, types.ErrorResponse{Error: message})
+}
+
+func writeMethodNotAllowed(w http.ResponseWriter) {
+	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }

@@ -5,20 +5,20 @@ import (
 	"math/rand"
 	"time"
 
-	pb "github.com/nerdgarten/mock-payment-service/proto"
+	"github.com/nerdgarten/mock-payment-service/types"
 )
 
 // MockCustomers stores mock customer data
-var MockCustomers = map[string]*pb.Customer{
+var MockCustomers = map[string]*types.Customer{
 	"cus_mock_12345": {
-		Id:      "cus_mock_12345",
+		ID:      "cus_mock_12345",
 		Object:  "customer",
 		Name:    "Ruff",
 		Email:   "ruff@example.com",
 		Created: 1734567890,
 	},
 	"cus_mock_67890": {
-		Id:      "cus_mock_67890",
+		ID:      "cus_mock_67890",
 		Object:  "customer",
 		Name:    "John Doe",
 		Email:   "john@example.com",
@@ -27,9 +27,9 @@ var MockCustomers = map[string]*pb.Customer{
 }
 
 // MockPaymentIntents stores mock payment intents
-var MockPaymentIntents = map[string]*pb.PaymentIntent{
+var MockPaymentIntents = map[string]*types.PaymentIntent{
 	"pi_mock_98765": {
-		Id:            "pi_mock_98765",
+		ID:            "pi_mock_98765",
 		Object:        "payment_intent",
 		Amount:        1200,
 		Currency:      "thb",
@@ -41,9 +41,9 @@ var MockPaymentIntents = map[string]*pb.PaymentIntent{
 }
 
 // MockCharges stores mock charges
-var MockCharges = map[string]*pb.Charge{
+var MockCharges = map[string]*types.Charge{
 	"ch_mock_555": {
-		Id:            "ch_mock_555",
+		ID:            "ch_mock_555",
 		Status:        "succeeded",
 		Amount:        1200,
 		Currency:      "thb",
@@ -52,9 +52,9 @@ var MockCharges = map[string]*pb.Charge{
 }
 
 // MockRefunds stores mock refunds
-var MockRefunds = map[string]*pb.Refund{
+var MockRefunds = map[string]*types.Refund{
 	"re_mock_444": {
-		Id:            "re_mock_444",
+		ID:            "re_mock_444",
 		Object:        "refund",
 		Amount:        600,
 		Currency:      "thb",
@@ -84,10 +84,10 @@ func GenerateRefundID() string {
 }
 
 // CreateMockCustomer creates a new mock customer
-func CreateMockCustomer(name, email string) *pb.Customer {
+func CreateMockCustomer(name, email string) *types.Customer {
 	id := GenerateCustomerID()
-	customer := &pb.Customer{
-		Id:      id,
+	customer := &types.Customer{
+		ID:      id,
 		Object:  "customer",
 		Name:    name,
 		Email:   email,
@@ -98,15 +98,15 @@ func CreateMockCustomer(name, email string) *pb.Customer {
 }
 
 // GetMockCustomer retrieves a customer by ID
-func GetMockCustomer(id string) *pb.Customer {
+func GetMockCustomer(id string) *types.Customer {
 	return MockCustomers[id]
 }
 
 // CreateMockPaymentIntent creates a new mock payment intent
-func CreateMockPaymentIntent(amount int64, currency, paymentMethod, description string) *pb.PaymentIntent {
+func CreateMockPaymentIntent(amount int64, currency, paymentMethod, description string) *types.PaymentIntent {
 	id := GeneratePaymentIntentID()
-	intent := &pb.PaymentIntent{
-		Id:            id,
+	intent := &types.PaymentIntent{
+		ID:            id,
 		Object:        "payment_intent",
 		Amount:        amount,
 		Currency:      currency,
@@ -120,32 +120,32 @@ func CreateMockPaymentIntent(amount int64, currency, paymentMethod, description 
 }
 
 // ConfirmMockPaymentIntent confirms a payment intent and creates a charge
-func ConfirmMockPaymentIntent(id string) (*pb.PaymentIntent, *pb.Charges) {
+func ConfirmMockPaymentIntent(id string) (*types.PaymentIntent, *types.Charges) {
 	intent := MockPaymentIntents[id]
 	if intent == nil {
 		return nil, nil
 	}
 	intent.Status = "succeeded"
 	chargeID := GenerateChargeID()
-	charge := &pb.Charge{
-		Id:            chargeID,
+	charge := &types.Charge{
+		ID:            chargeID,
 		Status:        "succeeded",
 		Amount:        intent.Amount,
 		Currency:      intent.Currency,
 		PaymentMethod: intent.PaymentMethod,
 	}
 	MockCharges[chargeID] = charge
-	charges := &pb.Charges{
-		Data: []*pb.Charge{charge},
+	charges := &types.Charges{
+		Data: []types.Charge{*charge},
 	}
 	return intent, charges
 }
 
 // CreateMockRefund creates a new mock refund
-func CreateMockRefund(paymentIntent string, amount int64) *pb.Refund {
+func CreateMockRefund(paymentIntent string, amount int64) *types.Refund {
 	id := GenerateRefundID()
-	refund := &pb.Refund{
-		Id:            id,
+	refund := &types.Refund{
+		ID:            id,
 		Object:        "refund",
 		Amount:        amount,
 		Currency:      "thb", // Assuming THB for simplicity

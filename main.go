@@ -2,12 +2,10 @@ package main
 
 import (
 	"log"
-	"net"
+	"net/http"
 	"os"
 
-	pb "github.com/nerdgarten/mock-payment-service/proto"
 	"github.com/nerdgarten/mock-payment-service/server"
-	"google.golang.org/grpc"
 )
 
 func main() {
@@ -16,17 +14,12 @@ func main() {
 		port = "50051"
 	}
 
-	lis, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
+	mux := http.NewServeMux()
+	server.NewPaymentServer().RegisterRoutes(mux)
 
-	s := grpc.NewServer()
-	paymentServer := server.NewPaymentServer()
-	pb.RegisterPaymentServiceServer(s, paymentServer)
-
-	log.Printf("Mock Payment gRPC server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	addr := ":" + port
+	log.Printf("Mock Payment REST server listening on %s", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		log.Fatalf("failed to start server: %v", err)
 	}
 }
