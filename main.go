@@ -11,7 +11,7 @@ import (
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "50051"
+		port = "50052"
 	}
 
 	mux := http.NewServeMux()

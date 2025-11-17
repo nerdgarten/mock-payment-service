@@ -39,10 +39,10 @@ type PaymentIntent struct {
 
 // CreatePaymentIntentRequest defines the required parameters to create an intent.
 type CreatePaymentIntentRequest struct {
-	Amount        int64  `json:"amount"`
-	Currency      string `json:"currency"`
-	PaymentMethod string `json:"payment_method"`
-	Description   string `json:"description"`
+	Amount        float64 `json:"amount"`
+	Currency      string  `json:"currency"`
+	PaymentMethod string  `json:"payment_method"`
+	Description   string  `json:"description"`
 }
 
 // CreatePaymentIntentResponse wraps the created payment intent.
@@ -87,8 +87,8 @@ type Refund struct {
 
 // CreateRefundRequest specifies the refund payload.
 type CreateRefundRequest struct {
-	PaymentIntent string `json:"payment_intent"`
-	Amount        int64  `json:"amount"`
+	PaymentIntent string  `json:"payment_intent"`
+	Amount        float64 `json:"amount"`
 }
 
 // CreateRefundResponse wraps the mock refund result.
@@ -110,4 +110,79 @@ type TestWebhookResponse struct {
 // ErrorResponse standardises error messages returned by the API.
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+// PaymentType represents different payment methods
+type PaymentType string
+
+const (
+	PaymentTypeCash          PaymentType = "cash"
+	PaymentTypeMobileBanking PaymentType = "mobilebanking"
+	PaymentTypeCreditCard    PaymentType = "creditcard"
+	PaymentTypeMeowthWallet  PaymentType = "meowth-wallet"
+)
+
+// Account represents a payment account with balance
+type Account struct {
+	Type    PaymentType `json:"type"`
+	Balance float64     `json:"balance"`
+}
+
+// DepositRequest represents a deposit request
+type DepositRequest struct {
+	Type   PaymentType `json:"type"`
+	Amount float64     `json:"amount"`
+}
+
+// DepositResponse represents a deposit response
+type DepositResponse struct {
+	Success       bool    `json:"success"`
+	TransactionID string  `json:"transaction_id"`
+	Message       string  `json:"message"`
+	Account       Account `json:"account"`
+}
+
+// WithdrawRequest represents a withdrawal request
+type WithdrawRequest struct {
+	Type   PaymentType `json:"type"`
+	Amount float64     `json:"amount"`
+}
+
+// WithdrawResponse represents a withdrawal response
+type WithdrawResponse struct {
+	Success       bool    `json:"success"`
+	TransactionID string  `json:"transaction_id"`
+	Message       string  `json:"message"`
+	Account       Account `json:"account"`
+}
+
+// RefundRequest represents a refund request
+type RefundRequest struct {
+	Type        PaymentType `json:"type"`
+	Amount      float64     `json:"amount"`
+	ReferenceID string      `json:"reference_id"`
+}
+
+// RefundResponse represents a refund response
+type RefundResponse struct {
+	Success       bool    `json:"success"`
+	TransactionID string  `json:"transaction_id"`
+	Message       string  `json:"message"`
+	Account       Account `json:"account"`
+}
+
+// ProcessPaymentRequest represents a payment processing request
+type ProcessPaymentRequest struct {
+	Type    PaymentType `json:"type"`
+	Amount  float64     `json:"amount"`
+	OrderID string      `json:"order_id"`
+}
+
+// ProcessPaymentResponse represents a payment processing response
+type ProcessPaymentResponse struct {
+	Success       bool    `json:"success"`
+	TransactionID string  `json:"transaction_id"`
+	Message       string  `json:"message"`
+	OrderID       string  `json:"order_id"`
+	Account       Account `json:"account"`
 }

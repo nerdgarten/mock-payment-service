@@ -63,6 +63,26 @@ var MockRefunds = map[string]*types.Refund{
 	},
 }
 
+// MockAccounts stores mock payment accounts with initial balance of 5000
+var MockAccounts = map[types.PaymentType]*types.Account{
+	types.PaymentTypeCash: {
+		Type:    types.PaymentTypeCash,
+		Balance: 5000,
+	},
+	types.PaymentTypeMobileBanking: {
+		Type:    types.PaymentTypeMobileBanking,
+		Balance: 5000,
+	},
+	types.PaymentTypeCreditCard: {
+		Type:    types.PaymentTypeCreditCard,
+		Balance: 5000,
+	},
+	types.PaymentTypeMeowthWallet: {
+		Type:    types.PaymentTypeMeowthWallet,
+		Balance: 500.0,
+	},
+}
+
 // GenerateCustomerID generates a mock customer ID
 func GenerateCustomerID() string {
 	return fmt.Sprintf("cus_mock_%d", rand.Intn(100000))
@@ -103,12 +123,12 @@ func GetMockCustomer(id string) *types.Customer {
 }
 
 // CreateMockPaymentIntent creates a new mock payment intent
-func CreateMockPaymentIntent(amount int64, currency, paymentMethod, description string) *types.PaymentIntent {
+func CreateMockPaymentIntent(amount float64, currency, paymentMethod, description string) *types.PaymentIntent {
 	id := GeneratePaymentIntentID()
 	intent := &types.PaymentIntent{
 		ID:            id,
 		Object:        "payment_intent",
-		Amount:        amount,
+		Amount:        int64(amount),
 		Currency:      currency,
 		Status:        "requires_confirmation",
 		ClientSecret:  fmt.Sprintf("%s_secret_%s", id, generateRandomString(6)),
@@ -142,12 +162,12 @@ func ConfirmMockPaymentIntent(id string) (*types.PaymentIntent, *types.Charges) 
 }
 
 // CreateMockRefund creates a new mock refund
-func CreateMockRefund(paymentIntent string, amount int64) *types.Refund {
+func CreateMockRefund(paymentIntent string, amount float64) *types.Refund {
 	id := GenerateRefundID()
 	refund := &types.Refund{
 		ID:            id,
 		Object:        "refund",
-		Amount:        amount,
+		Amount:        int64(amount),
 		Currency:      "thb", // Assuming THB for simplicity
 		Status:        "succeeded",
 		PaymentIntent: paymentIntent,
@@ -164,4 +184,141 @@ func generateRandomString(length int) string {
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+// GenerateTransactionID generates a mock transaction ID
+func GenerateTransactionID() string {
+	return fmt.Sprintf("txn_mock_%d", rand.Intn(100000))
+}
+
+// Deposit adds money to a payment account
+func Deposit(paymentType types.PaymentType, amount float64) *types.DepositResponse {
+	account := MockAccounts[paymentType]
+	if account == nil {
+		return &types.DepositResponse{
+			Success: false,
+			Message: "Payment type not supported",
+		}
+	}
+
+	if amount <= 0 {
+		return &types.DepositResponse{
+			Success: false,
+			Message: "Invalid deposit amount",
+		}
+	}
+
+	account.Balance += amount
+	transactionID := GenerateTransactionID()
+
+	return &types.DepositResponse{
+		Success:       true,
+		TransactionID: transactionID,
+		Message:       "Deposit successful",
+		Account:       *account,
+	}
+}
+
+// Withdraw removes money from a payment account
+func Withdraw(paymentType types.PaymentType, amount float64) *types.WithdrawResponse {
+	account := MockAccounts[paymentType]
+	if account == nil {
+		return &types.WithdrawResponse{
+			Success: false,
+			Message: "Payment type not supported",
+		}
+	}
+
+	if amount <= 0 {
+		return &types.WithdrawResponse{
+			Success: false,
+			Message: "Invalid withdrawal amount",
+		}
+	}
+
+	if account.Balance < amount {
+		return &types.WithdrawResponse{
+			Success: false,
+			Message: "Insufficient balance",
+		}
+	}
+
+	account.Balance -= amount
+	transactionID := GenerateTransactionID()
+
+	return &types.WithdrawResponse{
+		Success:       true,
+		TransactionID: transactionID,
+		Message:       "Withdrawal successful",
+		Account:       *account,
+	}
+}
+
+// Refund processes a refund to a payment account
+func Refund(paymentType types.PaymentType, amount float64, referenceID string) *types.RefundResponse {
+	account := MockAccounts[paymentType]
+	if account == nil {
+		return &types.RefundResponse{
+			Success: false,
+			Message: "Payment type not supported",
+		}
+	}
+
+	if amount <= 0 {
+		return &types.RefundResponse{
+			Success: false,
+			Message: "Invalid refund amount",
+		}
+	}
+
+	account.Balance += amount
+	transactionID := GenerateTransactionID()
+
+	return &types.RefundResponse{
+		Success:       true,
+		TransactionID: transactionID,
+		Message:       "Refund successful",
+		Account:       *account,
+	}
+}
+
+// ProcessPayment processes a payment by deducting from the account
+func ProcessPayment(paymentType types.PaymentType, amount float64, orderID string) *types.ProcessPaymentResponse {
+	account := MockAccounts[paymentType]
+	if account == nil {
+		return &types.ProcessPaymentResponse{
+			Success: false,
+			Message: "Payment type not supported",
+		}
+	}
+
+	if amount <= 0 {
+		return &types.ProcessPaymentResponse{
+			Success: false,
+			Message: "Invalid payment amount",
+		}
+	}
+
+	if account.Balance < amount {
+		return &types.ProcessPaymentResponse{
+			Success: false,
+			Message: "Insufficient balance",
+		}
+	}
+
+	account.Balance -= amount
+	transactionID := GenerateTransactionID()
+
+	return &types.ProcessPaymentResponse{
+		Success:       true,
+		TransactionID: transactionID,
+		Message:       "Payment processed successfully",
+		OrderID:       orderID,
+		Account:       *account,
+	}
+}
+
+// GetAccount retrieves account information
+func GetAccount(paymentType types.PaymentType) *types.Account {
+	return MockAccounts[paymentType]
 }

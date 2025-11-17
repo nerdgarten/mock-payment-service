@@ -26,6 +26,13 @@ func (s *PaymentServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/payment-intents/confirm", s.handleConfirmPaymentIntent)
 	mux.HandleFunc("/refunds", s.handleCreateRefund)
 	mux.HandleFunc("/webhooks/test", s.handleTestWebhook)
+
+	// New payment gateway endpoints
+	mux.HandleFunc("/accounts/", s.handleGetAccount)
+	mux.HandleFunc("/deposit", s.handleDeposit)
+	mux.HandleFunc("/withdraw", s.handleWithdraw)
+	mux.HandleFunc("/refund", s.handleRefund)
+	mux.HandleFunc("/process-payment", s.handleProcessPayment)
 }
 
 func (s *PaymentServer) handleCustomers(w http.ResponseWriter, r *http.Request) {
@@ -151,4 +158,99 @@ func writeError(w http.ResponseWriter, status int, message string) {
 
 func writeMethodNotAllowed(w http.ResponseWriter) {
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+}
+
+func (s *PaymentServer) handleGetAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w)
+		return
+	}
+	paymentTypeStr := strings.TrimPrefix(r.URL.Path, "/accounts/")
+	if paymentTypeStr == "" {
+		writeError(w, http.StatusBadRequest, "missing payment type")
+		return
+	}
+
+	var paymentType types.PaymentType
+	switch paymentTypeStr {
+	case "cash":
+		paymentType = types.PaymentTypeCash
+	case "mobilebanking":
+		paymentType = types.PaymentTypeMobileBanking
+	case "creditcard":
+		paymentType = types.PaymentTypeCreditCard
+	case "meowth-wallet":
+		paymentType = types.PaymentTypeMeowthWallet
+	default:
+		writeError(w, http.StatusBadRequest, "invalid payment type")
+		return
+	}
+
+	log.Printf("REST GetAccount called type=%s", paymentType)
+	account := data.GetAccount(paymentType)
+	if account == nil {
+		writeError(w, http.StatusNotFound, "account not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, account)
+}
+
+func (s *PaymentServer) handleDeposit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.DepositRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	log.Printf("REST Deposit called type=%s amount=%d", req.Type, req.Amount)
+	result := data.Deposit(req.Type, req.Amount)
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *PaymentServer) handleWithdraw(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.WithdrawRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	log.Printf("REST Withdraw called type=%s amount=%d", req.Type, req.Amount)
+	result := data.Withdraw(req.Type, req.Amount)
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *PaymentServer) handleRefund(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.RefundRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	log.Printf("REST Refund called type=%s amount=%d reference=%s", req.Type, req.Amount, req.ReferenceID)
+	result := data.Refund(req.Type, req.Amount, req.ReferenceID)
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *PaymentServer) handleProcessPayment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+	var req types.ProcessPaymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	log.Printf("REST ProcessPayment called type=%s amount=%d orderID=%s", req.Type, req.Amount, req.OrderID)
+	result := data.ProcessPayment(req.Type, req.Amount, req.OrderID)
+	writeJSON(w, http.StatusOK, result)
 }
